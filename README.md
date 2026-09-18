@@ -1,6 +1,8 @@
 # 输入框 / 软键盘 视口 bug 复现
 
-一个真实项目（聊天类 PWA）里抽出来的最小复现，跟业务代码无关，不含任何密钥/接口/数据。
+一个真实项目（聊天类 PWA「蛋窝」）里抽出来的最小复现，不含业务逻辑、不含任何密钥/接口/数据。
+
+**这份 demo 里的布局 CSS 和视口 JS 是从真实项目源码里原样摘出来的**（方案 A = 线上实际在跑的代码，只删掉了背景图和无关装饰），不是凭空模拟的效果图——可以放心照着这份代码分析/改。
 
 ## 现象
 
@@ -24,12 +26,13 @@
 - **C. composer 用 `position: fixed` 固定在页面底部**：不依赖 JS 算高度，直接把输入框钉在视口底部。这是还没试过、想请教的方案——朋友的建议。
 - **D. 对照组**：什么都不做，只用 `100dvh`，用来看没有任何 hack 时是什么表现。
 
-## 相关代码位置（供参考，这个仓库里没有完整项目）
+## 真实代码在哪（这个仓库只是摘录，不是完整项目）
 
-原项目里：
-- `App.tsx`：`sendMessage` 里发送后的重绘兜底逻辑；顶层 `useEffect` 里的 `visualViewport` 监听（方案 A）
-- `index.html`：viewport meta 标签（方案 B 的开关在这里）
-- `chat-interior.css` / `preview-migration.css`：`.composer` / `.composer-row` / `.app-shell` 的定位和高度
+`index.html` 里 `<style>` 和 `<script>` 各有一段用注释框起来的「摘录」，对应原项目：
+
+- **CSS 结构**（原样摘自 `chat-interior.css` / `preview-migration.css`）：
+  `html,body,#root{height:100%;overflow:hidden}` → `.app-shell{height:var(--app-h,100dvh)}` → `.chat-view{display:flex;flex-direction:column;height:100%}` → `.chat-stream{flex:1;overflow:auto}` + `.composer{position:relative;flex:0 0 auto}`（注意：**现在是 `relative` 不是 `fixed`**，composer 能停在底部完全靠 flex 列的 `flex:0 0 auto`）
+- **JS 视口逻辑**（原样摘自 `App.tsx` 顶层 `useEffect`）：监听 `window.visualViewport` 的 `resize`/`scroll`，把 `vv.height` 写进 CSS 变量 `--app-h`，整个 `.app-shell` 的高度绑定这个变量——键盘弹起时理论上应该让 app-shell 跟着变矮，composer 被"挤"到键盘上方。
 
 ## 想请教的问题
 

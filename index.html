@@ -5,65 +5,159 @@
 <meta name="viewport" content="width=device-width, initial-scale=1.0, viewport-fit=cover" />
 <meta name="theme-color" content="#4d1d18" />
 <link rel="manifest" href="./manifest.webmanifest" />
-<title>输入框键盘 bug 复现</title>
+<title>输入框键盘 bug 复现（真实代码摘录）</title>
 <style>
-  :root { --app-h: 100dvh; }
-  * { box-sizing: border-box; }
-  html, body { margin: 0; padding: 0; background: #2a2220; }
-  body { font: 14px/1.5 system-ui, sans-serif; color: #333; overscroll-behavior: none; }
+  /* ↓↓↓ 这一段是从蛋窝真实项目 CSS 里原样摘出来的（html/body/#root + app-shell + chat-view + composer 结构），
+     只删掉了背景图片、装饰性配色，布局/定位规则完全一致。 */
+  html, body, #root { width: 100%; height: 100%; min-height: 0; overflow: hidden; margin: 0; padding: 0; }
+  body { font: 13px/1.6 system-ui, sans-serif; background: #221a17; }
 
-  .app { display: flex; flex-direction: column; width: 100%; height: var(--app-h); overflow: hidden; }
+  /* preview-migration.css: .app-shell.app */
+  .app-shell {
+    display: flex;
+    flex-direction: column;
+    width: min(100%, 480px);
+    height: var(--app-h, 100dvh); /* ← 真实项目里这个变量由 JS 通过 visualViewport 写入 */
+    min-height: 0;
+    max-height: none;
+    margin: 0 auto;
+    overflow: hidden;
+  }
 
-  .topbar { flex: 0 0 auto; padding: 10px 14px; background: #4d1d18; color: #fff; font-size: 13px; }
-  .topbar b { display: block; margin-bottom: 4px; }
-  .modebar { flex: 0 0 auto; display: flex; gap: 6px; padding: 8px 10px; background: #eee; overflow-x: auto; }
-  .modebar button { flex: 0 0 auto; padding: 6px 10px; border: 1px solid #ccc; border-radius: 8px; background: #fff; font-size: 11px; }
-  .modebar button.active { background: #4d1d18; color: #fff; border-color: #4d1d18; }
+  /* preview-migration.css: .app-shell > .chat-view */
+  .chat-view-wrap { width: 100%; flex: 1; min-height: 0; height: 100%; overflow: hidden; }
 
-  .stream { flex: 1; min-height: 0; overflow-y: auto; padding: 14px; background: #f5efe6; -webkit-overflow-scrolling: touch; }
-  .msg { max-width: 80%; margin: 0 0 12px; padding: 10px 13px; background: #fff; border: 1px solid #ddc9b1; border-radius: 13px 13px 13px 3px; }
-  .msg.mine { margin-left: auto; background: #f0d9d1; border-radius: 13px 13px 3px 13px; }
+  /* preview-migration.css: .chat-view{...flex-direction:column} 三条规则合并 */
+  .chat-view {
+    display: flex;
+    flex-direction: column;
+    height: 100%;
+    min-height: 0;
+    overflow: hidden;
+    background: #493326;
+  }
 
-  /* composer：目前几种方案通过 body 的 data-mode 属性切换 */
-  .composer { flex: 0 0 auto; display: flex; gap: 8px; padding: 10px 12px max(10px, env(safe-area-inset-bottom)); background: #fffaf0; border-top: 1px solid #ddc9b1; }
+  .chat-header { flex: 0 0 auto; min-height: 78px; padding: 16px 14px 12px; color: #fff9ed; background: rgba(0,0,0,.25); }
 
-  body[data-mode="fixed"] .app { height: 100dvh; }
-  body[data-mode="fixed"] .stream { padding-bottom: 76px; }
-  body[data-mode="fixed"] .composer { position: fixed; left: 0; right: 0; bottom: 0; z-index: 5; }
+  /* chat-interior.css: .chat-stream */
+  .chat-stream { flex: 1; min-height: 0; padding: 17px 16px 8px; overflow: auto; -webkit-overflow-scrolling: touch; }
+  .msg { max-width: 80%; margin: 0 0 20px; padding: 10px 13px; color: #4d372f; background: rgba(255,249,237,.88); border-radius: 17px 17px 17px 5px; font-size: 12px; }
+  .msg.mine { margin-left: auto; background: rgba(229,194,184,.88); border-radius: 17px 17px 5px 17px; }
 
-  .composer input { flex: 1; min-width: 0; padding: 10px 12px; border: 1px solid #d8c0a8; border-radius: 10px; font-size: 14px; }
-  .composer button { padding: 0 16px; border: 0; border-radius: 10px; background: #4d1d18; color: #fff; font-size: 13px; }
+  /* chat-interior.css: .composer（真实项目里是 position:relative，不是 fixed，靠 flex:0 0 auto 停在列尾） */
+  .composer {
+    position: relative;
+    z-index: 6;
+    flex: 0 0 auto;
+    margin: 0;
+    padding: 9px 10px max(10px, env(safe-area-inset-bottom));
+    background: transparent;
+  }
 
-  .status { flex: 0 0 auto; padding: 6px 12px; background: #333; color: #9f9; font: 11px/1.4 ui-monospace, monospace; white-space: pre-wrap; }
+  /* chat-interior.css: .composer-row */
+  .composer-row {
+    display: grid;
+    grid-template-columns: 38px minmax(0, 1fr) 38px 38px;
+    min-height: 50px;
+    gap: 6px;
+    align-items: center;
+    padding: 5px;
+    color: #fff9ed;
+    border: 1px solid rgba(255, 250, 240, .2);
+    border-radius: 25px;
+    background: rgba(35, 29, 29, .86);
+  }
+  .composer-row textarea {
+    align-self: center;
+    width: 100%;
+    min-height: 38px;
+    max-height: 112px;
+    padding: 8px 2px;
+    color: #fff9ed;
+    border: 0;
+    outline: 0;
+    background: transparent;
+    font: 13px/1.6 inherit;
+    field-sizing: content;
+    resize: none;
+  }
+  .composer-row textarea::placeholder { color: rgba(255, 248, 234, .56); }
+  .composer-row .plus, .composer-row .send, .composer-row .model {
+    display: grid; place-items: center; width: 38px; height: 38px; border-radius: 50%; border: 0; padding: 0;
+    color: #fff9ed; background: rgba(255, 249, 238, .08);
+  }
+  .composer-row .send { background: linear-gradient(145deg, rgba(185,128,111,.95), rgba(126,82,69,.95)); }
+  /* ↑↑↑ 摘录结束 */
+
+  .info { flex: 0 0 auto; background: #1c1512; color: #d9c9a8; font-size: 11px; line-height: 1.6; padding: 8px 12px; }
+  .modebar { display: flex; gap: 6px; padding: 6px 10px; background: #2e2420; overflow-x: auto; flex: 0 0 auto; }
+  .modebar button { flex: 0 0 auto; padding: 6px 10px; border: 1px solid #6b5646; border-radius: 8px; background: #3a2e28; color: #eee; font-size: 10px; }
+  .modebar button.active { background: #b9806f; border-color: #b9806f; color: #221a17; }
+  .status { flex: 0 0 auto; padding: 6px 12px; background: #000; color: #8f8; font: 10px/1.4 ui-monospace, monospace; white-space: pre-wrap; max-height: 90px; overflow: auto; }
+
+  /* 方案 C：composer 改成 fixed 定位固定在视口底部（朋友建议的思路，未在真实项目里用过） */
+  body[data-mode="fixed"] .app-shell { height: 100dvh; }
+  body[data-mode="fixed"] .chat-stream { padding-bottom: 66px; }
+  body[data-mode="fixed"] .composer { position: fixed; left: 0; right: 0; bottom: 0; max-width: 480px; margin: 0 auto; }
 </style>
 </head>
 <body data-mode="viewport-js">
-  <div class="app" id="app">
-    <div class="topbar">
-      <b>输入框 / 软键盘复现 demo</b>
-      加到手机主屏幕（standalone）后测试，和直接用浏览器 tab 打开对比。点下面按钮切换不同的处理方案。
+  <div class="app-shell">
+    <div class="chat-view-wrap">
+      <div class="chat-view">
+        <div class="chat-header">蔺洄 · 已连接（模拟头部）</div>
+        <div class="chat-stream" id="stream"></div>
+        <div class="composer">
+          <div class="composer-row">
+            <button class="plus">＋</button>
+            <textarea id="input" rows="1" placeholder="和蔺洄说点什么…" aria-label="消息"></textarea>
+            <button class="model">⚙</button>
+            <button class="send" id="send">➤</button>
+          </div>
+        </div>
+      </div>
     </div>
-    <div class="modebar" id="modebar"></div>
-    <div class="stream" id="stream"></div>
-    <div class="composer">
-      <input id="input" type="text" placeholder="点这里弹出键盘，试试输入…" />
-      <button id="send">发送</button>
-    </div>
-    <div class="status" id="status">status: 加载中…</div>
   </div>
 
-<script>
-const modes = [
-  { id: 'viewport-js', label: 'A. visualViewport JS 撑高度（当前线上方案）' },
-  { id: 'interactive-widget', label: 'B. viewport interactive-widget（纯 CSS，曾试过又回退）' },
-  { id: 'fixed', label: 'C. composer fixed 定位在页面底部（朋友建议的思路）' },
-  { id: 'plain', label: 'D. 什么都不做，只用 100dvh 兜底（对照组）' },
-]
+  <div class="modebar" id="modebar"></div>
+  <div class="info" id="info"></div>
+  <div class="status" id="status">加载中…</div>
 
+<script>
+// ↓↓↓ 下面这段 useEffect 逻辑是从 App.tsx 原样摘出来的（去掉了 React 语法，逻辑一字不改）：
+//
+//   useEffect(() => {
+//     const vv = window.visualViewport
+//     if (!vv) return
+//     const apply = () => document.documentElement.style.setProperty('--app-h', `${Math.round(vv.height)}px`)
+//     apply()
+//     vv.addEventListener('resize', apply)
+//     vv.addEventListener('scroll', apply)
+//     return () => { vv.removeEventListener('resize', apply); vv.removeEventListener('scroll', apply) }
+//   }, [])
+//
+function setupRealViewportJS() {
+  const vv = window.visualViewport
+  if (!vv) { log('这个环境没有 visualViewport API'); return }
+  const apply = (evt) => {
+    document.documentElement.style.setProperty('--app-h', `${Math.round(vv.height)}px`)
+    log(`visualViewport ${evt ? evt.type : 'init'}: height=${Math.round(vv.height)} offsetTop=${Math.round(vv.offsetTop)}`)
+  }
+  apply()
+  vv.addEventListener('resize', apply)
+  vv.addEventListener('scroll', apply)
+}
+
+const modes = [
+  { id: 'viewport-js', label: 'A. visualViewport JS（当前线上真实方案）' },
+  { id: 'interactive-widget', label: 'B. interactive-widget（试过，已回退）' },
+  { id: 'fixed', label: 'C. composer fixed 底部（朋友建议，未试过）' },
+  { id: 'plain', label: 'D. 什么都不做，100dvh 对照组' },
+]
 const modebar = document.getElementById('modebar')
 const statusEl = document.getElementById('status')
+const infoEl = document.getElementById('info')
 const stream = document.getElementById('stream')
-const app = document.getElementById('app')
 
 modes.forEach(m => {
   const btn = document.createElement('button')
@@ -77,43 +171,26 @@ function setMode(id) {
   document.body.dataset.mode = id
   localStorage.setItem('repro-mode', id)
   ;[...modebar.children].forEach(b => b.classList.toggle('active', b.dataset.mode === id))
-  applyViewportMeta(id)
-  log(`切到方案 ${id}`)
-}
-
-// viewport meta 的 interactive-widget 只有页面加载时读一次，方案 B 需要重新设置再提示手动刷新一次
-function applyViewportMeta(id) {
   const meta = document.querySelector('meta[name="viewport"]')
   const base = 'width=device-width, initial-scale=1.0, viewport-fit=cover'
   const wanted = id === 'interactive-widget' ? `${base}, interactive-widget=resizes-content` : base
-  if (meta.content !== wanted) {
-    meta.content = wanted
-    log('⚠️ viewport meta 已改，interactive-widget 通常要刷新页面才生效，请手动刷新')
-  }
-}
-
-// 方案 A：visualViewport JS 撑高度（当前蛋窝线上用的办法）
-function setupViewportJS() {
-  const vv = window.visualViewport
-  if (!vv) { log('这个浏览器没有 visualViewport API'); return }
-  const apply = () => {
-    document.documentElement.style.setProperty('--app-h', `${Math.round(vv.height)}px`)
-    log(`viewport resize: height=${Math.round(vv.height)} offsetTop=${Math.round(vv.offsetTop)} mode=${document.body.dataset.mode}`)
-  }
-  apply()
-  vv.addEventListener('resize', apply)
-  vv.addEventListener('scroll', apply)
+  if (meta.content !== wanted) { meta.content = wanted; log('viewport meta 已改，interactive-widget 通常需要刷新页面才生效') }
+  if (id === 'viewport-js') infoEl.textContent = '真实线上方案：JS 监听 visualViewport，把 --app-h 设成可见高度，composer 靠 flex:0 0 auto 停在列尾（不是 fixed）。standalone 下键盘开合时这个 resize 事件有时延迟/不触发。'
+  else if (id === 'interactive-widget') infoEl.textContent = '纯 CSS 方案，不需要上面那段 JS。她 vivo 上实测：键盘弹出但输入框完全不跟随，比 A 更糟，已回退。'
+  else if (id === 'fixed') infoEl.textContent = 'composer 改 position:fixed 钉在视口底部，app-shell 固定 100dvh 不再用 --app-h。这是还没试过的思路——想请教这个在 standalone+安卓软键盘下是否真的更稳。'
+  else infoEl.textContent = '什么都不做的对照组，只用 100dvh，没有任何针对键盘的处理。'
+  log(`切到方案 ${id}`)
 }
 
 function log(text) {
   const t = new Date().toLocaleTimeString()
-  statusEl.textContent = `[${t}] ${text}\n` + statusEl.textContent.split('\n').slice(0, 8).join('\n')
+  statusEl.textContent = `[${t}] ${text}\n` + statusEl.textContent.split('\n').slice(0, 6).join('\n')
 }
 
-for (let i = 1; i <= 20; i++) {
+for (let i = 1; i <= 25; i++) {
   const div = document.createElement('div')
   div.className = 'msg' + (i % 2 === 0 ? ' mine' : '')
-  div.textContent = `消息 ${i}：滚动到底部，然后点输入框弹键盘看效果`
+  div.textContent = `消息 ${i}：滚到底部，点输入框弹键盘，看输入框跟不跟得上`
   stream.appendChild(div)
 }
 stream.scrollTop = stream.scrollHeight
@@ -129,10 +206,9 @@ document.getElementById('send').onclick = () => {
   requestAnimationFrame(() => { stream.scrollTop = stream.scrollHeight })
 }
 
-setupViewportJS()
-const saved = localStorage.getItem('repro-mode') || 'viewport-js'
-setMode(saved)
-log('页面加载完成。记得先「添加到主屏幕」，从桌面图标打开才能复现（浏览器 tab 里通常没问题）。')
+setupRealViewportJS()
+setMode(localStorage.getItem('repro-mode') || 'viewport-js')
+log('加载完成。请先「添加到主屏幕」，从桌面图标打开才能复现（浏览器 tab 里通常没问题）。')
 </script>
 </body>
 </html>
